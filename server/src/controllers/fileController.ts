@@ -1,10 +1,9 @@
 import { Request, Response } from 'express'
 import * as fs from 'fs/promises'
-import fetch from 'node-fetch'
 
 export const uploadFile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const filePath = '/home/hp/Solana-tutorials/upload-arweave/sample2.txt'
+        const filePath = '/home/hp/RustroverProjects/solana-token-deployer/server/dummy.jpg'
         // const filePath = process.env.FILE_PATH!
         const data: string = await fs.readFile(filePath, 'utf8');
         // const data = await fs.readFile(filePath, 'utf8')
