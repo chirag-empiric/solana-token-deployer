@@ -5,9 +5,9 @@ use anchor_spl::{
         create_metadata_accounts_v3, mpl_token_metadata::types::DataV2, CreateMetadataAccountsV3,
         Metadata as Metaplex,
     },
-    token::{mint_to, Mint, MintTo, Token, TokenAccount},
+    token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer},
 };
-declare_id!("Go1W5H25JmSignkRTMDxgo5MxWcy8K6ndbnrdsN6WWv4");
+declare_id!("5kLtN1pKqVcPJ6nnMS3F9BYZU4W2FTQ7dfWMccN17WaS");
 
 #[program]
 pub mod token_program {
@@ -72,6 +72,35 @@ pub mod token_program {
 
         Ok(())
     }
+
+    pub fn transfer_tokens(
+        ctx: Context<TransferTokens>,
+        token_name: String,
+        quantity: u64,
+    ) -> Result<()> {
+        if quantity != 69 {
+            return Err(TransferError::InvalidQuantity.into());
+        }
+
+        let token_name_bytes = token_name.as_bytes();
+        let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
+        let signer = [&seeds[..]];
+
+        transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.source.to_account_info(),
+                    to: ctx.accounts.destination.to_account_info(),
+                    authority: ctx.accounts.authority.to_account_info(),
+                },
+                &signer,
+            ),
+            quantity,
+        )?;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -120,4 +149,29 @@ pub struct MintTokens<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+}
+
+#[derive(Accounts)]
+#[instruction(token_name: String)]
+pub struct TransferTokens<'info> {
+    #[account(
+        mut,
+        seeds = [token_name.as_bytes()],
+        bump,
+    )]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub source: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[error_code]
+pub enum TransferError {
+    #[msg("Quantity must be exactly 69.")]
+    InvalidQuantity,
 }
