@@ -35,7 +35,7 @@ describe("TESTING TOKEN CREATION", () => {
   const mintAmount = 100;
 
   // set the toke decimals - 0 for example - MAKE SURE IT MATCHES THE ONE IN THE ```lib.rs``` file
-  const tokenDecimals = 0;
+  const TOKEN_DECIMALS = 0;
 
   const TOKEN_NAME = "Token 1";
   const TOKEN_SYMBOL = "TKN1";
@@ -131,7 +131,7 @@ describe("TESTING TOKEN CREATION", () => {
     };
 
     const txHash = await program.methods
-      .mintTokens(TOKEN_NAME, new BN(mintAmount * 10 ** tokenDecimals))
+      .mintTokens(TOKEN_NAME, new BN(mintAmount * 10 ** TOKEN_DECIMALS))
       .accounts(context)
       .rpc();
     await program.provider.connection.confirmTransaction(txHash);
@@ -146,6 +146,85 @@ describe("TESTING TOKEN CREATION", () => {
       "Compare balances, it must be equal"
     );
   });
+
+
+  // return;
+  it("transfer tokens", async () => {
+    // Get the associated token account addresses for source and destination
+    const source = await anchor.utils.token.associatedAddress({
+      mint: mintWithSeed,
+      owner: payer,
+    });
+
+    const destination = await anchor.utils.token.associatedAddress({
+      mint: mintWithSeed,
+      owner: payer,
+    });
+
+    // Initialize or ensure the source account has enough tokens
+    await initializeSourceAccount(source, mintWithSeed);
+
+    // Mint some tokens to the source account
+    await mintTokensToSourceAccount(source, mintWithSeed, new anchor.BN(1000 * 10 ** TOKEN_DECIMALS));
+
+    // Set up the context for the transferTokens function
+    const context = {
+      mint: mintWithSeed,
+      source: source,
+      destination: destination,
+      authority: payer,
+      rent: web3.SYSVAR_RENT_PUBKEY,
+      systemProgram: web3.SystemProgram.programId,
+      tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+    };
+
+    // Invoke the transferTokens function with the required quantity
+    const txHash = await program.methods
+      .transferTokens(TOKEN_NAME, new anchor.BN(69 * 10 ** TOKEN_DECIMALS)) // Transfer 100 tokens
+      .accounts(context)
+      .rpc();
+
+    // Confirm the transaction on the blockchain
+    await program.provider.connection.confirmTransaction(txHash);
+    console.log(`https://explorer.solana.com/tx/${txHash}?cluster=devnet`);
+  });
+
+  // Helper function to initialize the source account if needed
+  async function initializeSourceAccount(source, mint) {
+    const sourceAccount = await program.provider.connection.getAccountInfo(source);
+    if (!sourceAccount) {
+      const tx = new web3.Transaction().add(
+        anchor.utils.token.createAssociatedTokenAccountInstruction(
+          payer,
+          source,
+          payer,
+          mint
+        )
+      );
+      await program.provider.sendAndConfirm(tx, [], { commitment: "confirmed" });
+    }
+  }
+
+  // Helper function to mint tokens to the source account
+  async function mintTokensToSourceAccount(source, mint, amount) {
+    const context = {
+      mint: mint,
+      destination: source,
+      payer,
+      rent: web3.SYSVAR_RENT_PUBKEY,
+      systemProgram: web3.SystemProgram.programId,
+      tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+      associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+    };
+
+    const txHash = await program.methods
+      .mintTokens(TOKEN_NAME, new BN(amount * 10 ** TOKEN_DECIMALS))
+      .accounts(context)
+      .rpc();
+    await program.provider.connection.confirmTransaction(txHash);
+    console.log("Tokens minted to source account:", txHash);
+  }
+
 });
 
 
