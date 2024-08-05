@@ -4,6 +4,7 @@ import path from 'path'
 
 export const uploadFile = async (req: Request, res: Response): Promise<void> => {
   try {
+    // twitter, telegram, website 
     const { name, symbol, description } = req.body
     console.log(name, symbol, description)
 
