@@ -37,9 +37,9 @@ describe("TESTING TOKEN CREATION", () => {
   // set the toke decimals - 0 for example - MAKE SURE IT MATCHES THE ONE IN THE ```lib.rs``` file
   const TOKEN_DECIMALS = 0;
 
-  const TOKEN_NAME = "Token 1";
-  const TOKEN_SYMBOL = "TKN1";
-  const TOKEN_URI = "https://arweave.net/Ls26gntZkKqXcx0TLmTyfZqj-vNaBaEuCo7DvYNMFnw";
+  const TOKEN_NAME = "Batman";
+  const TOKEN_SYMBOL = "VENGENCE";
+  const TOKEN_URI = "https://arweave.net/Xjqaj_rYYQGrsiTk9JRqpguA813w6NGPikcRyA1vAHM";
   const TOKEN_TAX = 100; // 100 = 1%
 
   const [mintWithSeed] = web3.PublicKey.findProgramAddressSync(
@@ -228,4 +228,4 @@ describe("TESTING TOKEN CREATION", () => {
 });
 
 
-// https://arweave.net/Xjqaj_rYYQGrsiTk9JRqpguA813w6NGPikcRyA1vAHM
+// 
