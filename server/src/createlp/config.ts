@@ -1,5 +1,8 @@
 import { Connection, Keypair } from '@solana/web3.js'
 import { Raydium, TxVersion } from '@raydium-io/raydium-sdk-v2'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const bs58 = require('bs58')
 const txVersion = TxVersion.V0
@@ -9,7 +12,7 @@ const connection = new Connection('https://api.devnet.solana.com', {
 })
 const owner = Keypair.fromSecretKey(
   bs58.decode(
-    'Q2HfaHdcZuQXqkBGPBghNyW4mz4RwZQqJQqQpafpMyKZuWfaxe6sGgHBMFZ8oH8j6MehZxXgUgqVDryD2suyeWA',
+    process.env.SECRET_KEY,
   ),
 )
 
