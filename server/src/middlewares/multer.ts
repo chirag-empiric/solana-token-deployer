@@ -1,5 +1,4 @@
 const multer = require('multer');
-const upload = multer().array();
 
 const storage = multer.diskStorage({
     destination: function (req: Request, file: any, cb: any) {
@@ -11,4 +10,4 @@ const storage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix + '.' + fileData[fileData.length - 1])
     }
 });
-export const fileUpload = multer({storage: storage});
+export const fileUpload = multer({ storage: storage });
