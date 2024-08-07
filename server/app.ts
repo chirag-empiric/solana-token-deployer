@@ -15,6 +15,6 @@ app.use(bodyParser.urlencoded({ extended: true }))
 app.use('/api', metadataRoutes)
 
 app.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`)
-  await connectDB()
+    console.log(`Server is running on port ${PORT}`)
+    await connectDB()
 })

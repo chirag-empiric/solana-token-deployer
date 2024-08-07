@@ -2,7 +2,7 @@ import { PublicKey } from '@solana/web3.js'
 import { DEVNET_PROGRAM_ID } from '@raydium-io/raydium-sdk-v2'
 import { initSdk, txVersion, connection } from './config'
 
-const getMint = require('@solana/spl-token')
+const { getMint } = require('@solana/spl-token')
 
 export const createMarket = async (baseToken: string, quoteToken: string) => {
   try {
@@ -20,7 +20,7 @@ export const createMarket = async (baseToken: string, quoteToken: string) => {
         decimals: quoteMintInfo.decimals,
       },
       lotSize: 1,
-      tickSize: 0.0001,
+      tickSize: 0.01,
       dexProgramId: DEVNET_PROGRAM_ID.OPENBOOK_MARKET,
       txVersion,
     })
@@ -32,13 +32,16 @@ export const createMarket = async (baseToken: string, quoteToken: string) => {
     let txHash = txIds?.txIds[1]
     console.log(`https://solscan.io/tx/${txHash}?cluster=devnet`)
 
-    const marketId = Object.keys(extInfo.address).reduce(
+    const marketData: any = Object.keys(extInfo.address).reduce(
       (acc, cur) => ({
         ...acc,
-        [cur]: extInfo.address[cur].toBase58(),
+        [cur]: extInfo.address[cur as keyof typeof extInfo.address].toBase58(),
       }),
       {},
-    ).marketId
+    );
+
+    const marketId = marketData.marketId;
+
     return marketId
   } catch (err: any) {
     console.error('Error creating market:', err)

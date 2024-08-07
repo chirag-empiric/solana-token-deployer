@@ -1,32 +1,30 @@
-import { Connection, Keypair } from '@solana/web3.js'
-import { Raydium, TxVersion } from '@raydium-io/raydium-sdk-v2'
-import dotenv from 'dotenv'
+import base58 from "bs58";
+import { Raydium, TxVersion } from '@raydium-io/raydium-sdk-v2';
+import { Connection, Keypair, clusterApiUrl } from '@solana/web3.js';
+import dotenv from 'dotenv';
 
-dotenv.config()
+dotenv.config();
 
-const bs58 = require('bs58')
-const txVersion = TxVersion.V0
-const cluster = 'devnet'
-const connection = new Connection('https://api.devnet.solana.com', {
-  commitment: 'confirmed',
-})
-const owner = Keypair.fromSecretKey(
-  bs58.decode(
-    process.env.SECRET_KEY,
-  ),
-)
+export const owner: Keypair = Keypair.fromSecretKey(base58.decode(process.env.SECRET_KEY as string))
 
-const initSdk = async () => {
-  const raydium = new Raydium({
-    connection,
+
+
+export const connection = new Connection("https://api.devnet.solana.com");
+export const txVersion = TxVersion.V0;
+const cluster = 'devnet';
+
+let raydium: Raydium | undefined
+export const initSdk = async (params?: { loadToken?: boolean }) => {
+  if (raydium) return raydium
+  console.log(`connect to rpc ${connection.rpcEndpoint} in ${cluster}`)
+  raydium = await Raydium.load({
     owner,
-    txVersion,
+    connection,
     cluster,
     disableFeatureCheck: true,
-    // disableLoadToken: !(params && params.loadToken),
+    disableLoadToken: !params?.loadToken,
     blockhashCommitment: 'finalized',
   })
+
   return raydium
 }
-
-export { initSdk, txVersion, connection }
