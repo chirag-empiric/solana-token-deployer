@@ -11,11 +11,9 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       res.status(400).json({ message: 'File is required' })
       return
     }
-
     const filePath = path.resolve(req.file.path)
-
     const data = await fs.readFile(filePath)
-
+    
     const response = await fetch('https://api.akord.com/files', {
       method: 'POST',
       headers: {
@@ -53,7 +51,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
     res.status(200).json({
       success: true,
       message: 'Metadata uploaded successfully',
-      metadata: responseJsonResult.tx.gatewayUrls[1]
+      metadata: responseJsonResult.tx.gatewayUrls[1],
     })
   } catch (err) {
     console.error('Error uploading file:', err)
