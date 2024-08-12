@@ -5,15 +5,15 @@ dotenv.config()
 
 const mongoURI: string = process.env.MONGO_URI || ''
 
-const connectDB = async () => {
+const connectDb = async () => {
   try {
     const connection = await mongoose.connect(mongoURI)
     console.log(`Database connected with ${connection.connection.host}`)
   } catch (err: any) {
     console.log('in catch block')
     console.log('err', err.message)
-    setTimeout(connectDB, 1000)
+    setTimeout(connectDb, 1000)
   }
 }
 
-export { connectDB }
+export { connectDb }

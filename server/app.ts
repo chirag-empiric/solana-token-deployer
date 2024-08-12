@@ -2,8 +2,9 @@ import dotenv from 'dotenv'
 import express from 'express'
 import bodyParser from 'body-parser'
 import metadataRoutes from './src/routes/fileupload.routes'
-import createMarkets from './src/routes/pool.routes'
-import { connectDB } from './src/utils/connectDB'
+import createMarketsRoutes from './src/routes/pool.routes'
+import dexRoutes from './src/routes/dex.routes'
+import { connectDb } from './src/utils/connectDb'
 
 dotenv.config()
 
@@ -14,10 +15,11 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
 app.use('/api', metadataRoutes)
-app.use('/create', createMarkets)
+app.use('/create', createMarketsRoutes)
+app.use('/dex', dexRoutes)
 
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`)
 
-  await connectDB()
+  await connectDb()
 })
