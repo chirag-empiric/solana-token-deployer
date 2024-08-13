@@ -1,3 +1,5 @@
+extern crate core;
+
 mod pool;
 
 use anchor_lang::prelude::*;
