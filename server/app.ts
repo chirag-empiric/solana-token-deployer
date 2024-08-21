@@ -14,12 +14,14 @@ const PORT = process.env.PORT || 8080
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
+console.log(`hello2`)
+console.log(`hello`)
+
 app.use('/api', metadataRoutes)
-app.use('/create', createMarketsRoutes)
+app.use('/pool', createMarketsRoutes)
 app.use('/dex', dexRoutes)
 
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`)
-
   await connectDb()
 })

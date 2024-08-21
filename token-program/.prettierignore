@@ -6,3 +6,8 @@ node_modules
 dist
 build
 test-ledger
+
+anchor run test --tests tests/pool_tests.ts  // This file name is as per mentioned in the folder of test
+
+token_program = "FkpzL8BHdJWJvhzUkdPRkJKFUs3HQZw2uu6ASZRdtZsy"
+pool_id = "2oUNXYHnvjhMNaDEqtA3fdbHDMPYE6AshiPnCwjPYZLz"
