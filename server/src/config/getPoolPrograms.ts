@@ -2,15 +2,15 @@ import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.j
 import base58 from 'bs58'
 import { AnchorProvider, BN, Program, web3 } from '@project-serum/anchor'
 import { Wallet } from '@project-serum/anchor'
-import poolIdl from '../../../token-program/target/idl/pool_program.json'
+import poolIdl from '../../../token-program/target/idl/pool.json'
 // import tokenIdl from '../../../token-program/target/idl/token_program.json'
-import userWalletJsons from '/home/hp/.config/solana/solana_account1.json'
+import userWalletJsons from '/home/empiric-u3/.config/solana/id.json'
 import { PoolProgram } from '../interfaces/pool_program'
 
 const rpcUrl = process.env.RPC || 'http://127.0.0.1:8899'
 const commitmentLevel = 'confirmed'
 
-export const PROGRAM_ID = new PublicKey(poolIdl.metadata.address)
+export const PROGRAM_ID = new PublicKey("2aRxvJVKXEb4mMaWrZCyHnPZS4d3BFKbUz93SfgHjUB2")
 const programInterfacesIDL = JSON.parse(JSON.stringify(poolIdl))
 const PRIVATE_KEY_JSON = base58.encode(Uint8Array.from(userWalletJsons))
 

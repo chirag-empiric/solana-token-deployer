@@ -2,18 +2,18 @@ use anchor_lang::{
     prelude::*,
     solana_program::{clock::Clock, hash::hash, program::invoke},
 };
-use std::collections::HashMap;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
+use std::collections::HashMap;
 
 mod constants;
 mod error;
 
 use crate::{constants::*, error::*};
 
-declare_id!("8kxcWtBYUYT1DouQQtTN6PdFLcGuT9QsjRTD2CGvyeCv");
+declare_id!("2aRxvJVKXEb4mMaWrZCyHnPZS4d3BFKbUz93SfgHjUB2");
 
 #[program]
-pub mod pool_program {
+pub mod pool {
     use super::*;
 
     pub fn init_master_account(ctx: Context<InitMasterAccount>) -> Result<()> {
