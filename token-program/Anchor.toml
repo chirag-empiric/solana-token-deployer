@@ -5,8 +5,8 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-pool = "2aRxvJVKXEb4mMaWrZCyHnPZS4d3BFKbUz93SfgHjUB2"
-token_program = "8uQf5MMGBkCN3QjiFsfRMv3XsJZMHJCRFnTRrQ72EEfe"
+pool = "CqJtZhuPf5bKpE5h8Vw1czWSjdknedZUu6cPbTD9V3Dp"
+token_program = "AazWuDQ4xMcE6NtrSVScZEwTunZR4oPFW4VHQjg5gD2S"
 
 [workspace]
 members = ["programs/token-program", "programs/pool"]
@@ -20,7 +20,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-wallet = "/home/empiric-u3/.config/solana/id.json"
+wallet = "/home/hp/.config/solana/solana_account1.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
