@@ -5,8 +5,9 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-pool = "CqJtZhuPf5bKpE5h8Vw1czWSjdknedZUu6cPbTD9V3Dp"
-token_program = "AazWuDQ4xMcE6NtrSVScZEwTunZR4oPFW4VHQjg5gD2S"
+
+pool = "mptJpRVYorCevUHLnMEUTcz7XfH4c5Tx1b9ETDujFoZ"
+token_program = "KYdwmEdYZTeQG8zJXJX97mzkkAJuE6cZd3WcPGy6wRt"
 
 [workspace]
 members = ["programs/token-program", "programs/pool"]

@@ -6,7 +6,7 @@ import { ComputeBudgetProgram, Keypair, sendAndConfirmTransaction, SystemProgram
 import { getPoolKeys } from '../config/poolKeys'
 import { Liquidity, WSOL, TOKEN_PROGRAM_ID } from '@raydium-io/raydium-sdk'
 import { getSwapInstructions } from '../config/getSwapInstructions'
-import swapDetailsModel from '../models/swapDetails'
+import swapDetailsModel from '../models/swapDetails.models'
 
 const { createSyncNativeInstruction } = require('@solana/spl-token')
 

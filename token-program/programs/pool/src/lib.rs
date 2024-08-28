@@ -11,14 +11,15 @@ mod error;
 use crate::{constants::*, error::*};
 use crate::program::Pool;
 
-declare_id!("CqJtZhuPf5bKpE5h8Vw1czWSjdknedZUu6cPbTD9V3Dp");
+declare_id!("mptJpRVYorCevUHLnMEUTcz7XfH4c5Tx1b9ETDujFoZ");
 
 #[program]
 pub mod pool {
     use super::*;
 
-    pub fn init_master_account(ctx: Context<InitMasterAccount>) -> Result<()> {
-        let master = &mut ctx.accounts.master;
+    pub fn init_master_account(ctx: Context<InitMasterAccount>, master_account:String) -> Result<()> {
+        let master_account_info = &mut ctx.accounts.master;
+        master_account_info.master_address = master_account;
         Ok(())
     }
 
@@ -143,7 +144,7 @@ pub struct InitMasterAccount<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 8+ 32,
+        space = 8 + 64,
         seeds = [MASTER_ACCOUNT_SEED.as_bytes()],
         bump
     )]
@@ -154,12 +155,11 @@ pub struct InitMasterAccount<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(current_id: u64)]
 pub struct CreatePool<'info> {
     #[account(
-        init,
-        space = 4 + 4 + 32 + 32 + 32 + 32 + 32 + 32,
-        seeds = [POOL_SEED.as_bytes(), &current_id.to_le_bytes()],
+        init_if_needed,
+        space = 8 + 192,
+        seeds = [POOL_SEED.as_bytes()],
         bump,
         payer = signer,
     )]

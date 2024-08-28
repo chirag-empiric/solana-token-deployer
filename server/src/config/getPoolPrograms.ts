@@ -8,6 +8,8 @@ import userWalletJsons from '/home/hp/.config/solana/solana_account1.json'
 import { PoolProgram } from '../interfaces/pool_program'
 
 const rpcUrl = process.env.RPC || 'http://127.0.0.1:8899'
+// const rpcUrl = process.env.RPC || 'https://api.devnet.solana.com'
+
 const commitmentLevel = 'confirmed'
 const programInterfacesIDL = JSON.parse(JSON.stringify(poolIdl))
 const PRIVATE_KEY_JSON = base58.encode(Uint8Array.from(userWalletJsons))
