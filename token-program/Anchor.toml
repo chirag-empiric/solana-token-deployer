@@ -6,8 +6,8 @@ skip-lint = false
 
 [programs.localnet]
 
-pool = "2w7YpkzHHEUvGLh1GAou8VDr9Zcn6CWhRUvGjCUdcaPB"
-token_program = "6JAaDkZ58YL1AsoovBKvZS4VGPG5GhGDcckxuh5ze7Bt"
+pool = "2on9UwGnxc76b1K566nXcvivQ1kEHeKtCDmwhGXZDM9y"
+token_program = "23KNtpFrfCnvGKXF6NjL1wnoNrsoCr59s359RJziQXsA"
 
 [workspace]
 members = ["programs/token-program", "programs/pool"]

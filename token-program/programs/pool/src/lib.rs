@@ -1,168 +1,121 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::TokenAccount;
+use anchor_spl::token::{Mint, TokenAccount};
+use token::program::Token;
 
-mod constants;
-mod error;
-
-use crate::{constants::*, error::*};
-
-use token_program::accounts::TransferTokens;
-use token_program::program::TokenProgram;
-
-declare_id!("2w7YpkzHHEUvGLh1GAou8VDr9Zcn6CWhRUvGjCUdcaPB");
+declare_id!("8M6CDsJj8JNjxKaWBHpPLdJmDJLvaDWmhsNeXR2GDHnp");
 
 #[program]
-pub mod pool {
+pub mod tkn_launcher {
+    use anchor_spl::token::Transfer;
+
     use super::*;
 
-    pub fn init_master_account(
-        ctx: Context<InitMasterAccount>,
-        master_account: String,
-    ) -> Result<()> {
-        let master_account_info = &mut ctx.accounts.master;
-        master_account_info.master_address = master_account;
+    pub fn init(ctx: Context<MainContext>) -> Result<()> {
+        ctx.accounts.data.master = ctx.accounts.signer.key().to_string();
         Ok(())
     }
 
     pub fn create_pool(
-        ctx: Context<CreatePool>,
-        base_token_account: String,
-        quote_token_account: String,
+        ctx: Context<MainContext>,
+        base_token: Pubkey,
+        quote_token: Pubkey,
         base_token_amount: f64,
         quote_token_amount: f64,
+        pool_constant: f64,
     ) -> Result<()> {
-        let signer = ctx.accounts.signer.key();
-        let pool = &mut ctx.accounts.pool;
-        let master = &mut ctx.accounts.master;
-
-        let pool_data = PoolData {
-            base_token_account: base_token_account,
-            quote_token_account: quote_token_account,
-            owner: signer,
+        let new_pool = Pool {
+            base_token,
+            quote_token,
             base_token_amount,
             quote_token_amount,
-            pool_constant: base_token_amount * quote_token_amount,
+            pool_constant,
+            token_creator: ctx.accounts.signer.key(),
         };
 
-        pool.pools.push(pool_data);
-        master.current_id += 1;
-        msg!("Pool created");
+        ctx.accounts.data.pools.push(new_pool);
 
         Ok(())
     }
 
-    pub fn get_pool_details(
-        ctx: Context<CreatePool>,
-        quote_token_account: String,
-    ) -> Result<PoolData> {
-        let pool = &ctx.accounts.pool;
-        let pool_data = pool
+    pub fn swap_token(ctx: Context<SwapContext>, token_name: String, quantity: u64) -> Result<()> {
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.source.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+
+        let token_name_bytes = token_name.as_bytes();
+        let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
+        let signer = &[&seeds[..]];
+
+        let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+
+        anchor_spl::token::transfer(cpi_context, quantity)?;
+
+        Ok(())
+    }
+
+    pub fn get_pool(ctx: Context<MainContext>, quote_token: Pubkey) -> Result<Pool> {
+        let data = &ctx.accounts.data;
+        let pool_data = data
             .pools
             .iter()
-            .find(|p| p.quote_token_account == quote_token_account)
-            .ok_or(PoolError::PoolNotFound)?;
+            .find(|pool| pool.quote_token == quote_token)
+            .unwrap();
+
         Ok(pool_data.clone())
     }
-
-    pub fn swap(
-        _ctx: Context<SwapTokens>,
-        _base_in_account: Pubkey,
-        _quote_out_account: Pubkey,
-        _token_in_amount: u64,
-        _token_name: String,
-    ) -> Result<()> {
-        // let seeds = &[token_name.as_bytes(), &[ctx.bumps.mint]];
-        // let signer_seeds = &[&seeds[..]];
-        // let cpi_program = ctx.accounts.token_program.to_account_info();
-
-        // Log the successful transfer
-        msg!("Tokens transferred successfully.");
-
-        Ok(())
-    }
 }
 
 #[account]
-pub struct Master {
-    pub current_id: u64,
-    pub master_address: String,
+pub struct Data {
+    pools: Vec<Pool>,
+    master: String,
 }
 
-#[account]
-pub struct PoolDetails {
-    pub pools: Vec<PoolData>,
+impl Data {
+    const SIZE: usize = 8 + (88 * 10 + 8 + 24 + 4);
 }
 
-#[account]
-pub struct SwapDetails {
-    pub pool_address: String,
-    pub base_token: String,
-    pub quote_token: String,
-    pub swapped_amount: u64,
-    pub signer: String,
+#[derive(Clone, AnchorDeserialize, AnchorSerialize, Debug)]
+pub struct Pool {
+    base_token: Pubkey,      // 32
+    quote_token: Pubkey,     // 32
+    token_creator: Pubkey,   // 32
+    base_token_amount: f64,  // 8
+    quote_token_amount: f64, // 8
+    pool_constant: f64,      // 8
 }
 
 #[derive(Accounts)]
-pub struct InitMasterAccount<'info> {
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 64,
-        seeds = [MASTER_ACCOUNT_SEED.as_bytes()],
-        bump
-    )]
-    pub master: Account<'info, Master>,
+pub struct MainContext<'info> {
+    #[account(init_if_needed, payer= signer,seeds=[b"main"], bump, space= Data::SIZE)]
+    data: Account<'info, Data>,
     #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct CreatePool<'info> {
-    #[account(
-        init,
-        space = 4 + 4 + 32 + 32 + 32 + 32 + 32 + 32,
-        seeds = [POOL_SEED.as_bytes(), &(master.current_id + 1).to_le_bytes()],
-        bump,
-        payer = signer,
-    )]
-    pub pool: Account<'info, PoolDetails>,
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    #[account(mut)]
-    pub master: Account<'info, Master>,
+    signer: Signer<'info>,
+    system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 #[instruction(token_name: String)]
-pub struct SwapTokens<'info> {
+pub struct SwapContext<'info> {
+    #[account(mut)]
+    data: Account<'info, Data>,
+    #[account(mut)]
+    signer: Signer<'info>,
     #[account(
-        init,
-        payer = signer,
-        space = 4 + 32 + 32 + 32 + 8 + 32,
-        seeds = [SWAP_SEED.as_bytes()],
+        mut,
+        seeds = [token_name.as_bytes()],
         bump,
     )]
-    pub swap: Account<'info, SwapDetails>,
+    mint: Account<'info, Mint>,
     #[account(mut)]
-    pub from_ata: Account<'info, TokenAccount>,
+    source: Account<'info, TokenAccount>,
     #[account(mut)]
-    pub to_ata: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, TokenProgram>,
+    destination: Account<'info, TokenAccount>,
     #[account(mut)]
-    pub signer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    #[account(mut)]
-    pub pool: Account<'info, PoolDetails>,
-}
-
-#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
-pub struct PoolData {
-    pub base_token_account: String,
-    pub quote_token_account: String,
-    pub owner: Pubkey,
-    pub base_token_amount: f64,
-    pub quote_token_amount: f64,
-    pub pool_constant: f64,
+    authority: Signer<'info>,
+    rent: Sysvar<'info, Rent>,
+    token_program: Program<'info, Token>,
 }
