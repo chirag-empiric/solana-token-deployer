@@ -11,7 +11,7 @@ use anchor_spl::{
 declare_id!("6JAaDkZ58YL1AsoovBKvZS4VGPG5GhGDcckxuh5ze7Bt");
 
 #[program]
-pub mod token_program {
+pub mod token {
     use super::*;
 
     pub fn initiate_token(
@@ -79,10 +79,6 @@ pub mod token_program {
         token_name: String,
         quantity: u64,
     ) -> Result<()> {
-        // if quantity != 69 {
-        //     return Err(TransferError::InvalidQuantity.into());
-        // }
-
         let token_name_bytes = token_name.as_bytes();
         let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
         let signer = [&seeds[..]];
