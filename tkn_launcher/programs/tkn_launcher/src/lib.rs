@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
 use token::program::Token;
 
-declare_id!("8M6CDsJj8JNjxKaWBHpPLdJmDJLvaDWmhsNeXR2GDHnp");
+declare_id!("2on9UwGnxc76b1K566nXcvivQ1kEHeKtCDmwhGXZDM9y");
 
 #[program]
 pub mod tkn_launcher {

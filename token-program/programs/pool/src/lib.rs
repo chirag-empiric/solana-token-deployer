@@ -1,40 +1,67 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, TokenAccount};
-use token::program::Token;
+use anchor_lang::{
+    prelude::*,
+    solana_program::{clock::Clock, hash::hash, program::invoke},
+};
+use anchor_spl::token::{self, Token, TokenAccount,Mint, Transfer as SplTransfer};
+use std::collections::HashMap;
 
-declare_id!("8M6CDsJj8JNjxKaWBHpPLdJmDJLvaDWmhsNeXR2GDHnp");
+mod constants;
+mod error;
+
+use crate::{constants::*, error::*};
+// use crate::program::Pool;
+
+declare_id!("ExNmugVzNsecTe3VnFFxTcnfrfQTV38xEeX7w5oxUEcH");
 
 #[program]
-pub mod tkn_launcher {
+pub mod pool {
+    use super::*;
     use anchor_spl::token::Transfer;
 
-    use super::*;
-
-    pub fn init(ctx: Context<MainContext>) -> Result<()> {
-        ctx.accounts.data.master = ctx.accounts.signer.key().to_string();
+    pub fn init_master_account(ctx: Context<InitMasterAccount>, master_account:String) -> Result<()> {
+        let master_account_info = &mut ctx.accounts.master;
+        master_account_info.master_address = master_account;
         Ok(())
     }
 
     pub fn create_pool(
-        ctx: Context<MainContext>,
-        base_token: Pubkey,
-        quote_token: Pubkey,
+        ctx: Context<CreatePool>,
+        base_token_account: Pubkey,
+        quote_token_account: Pubkey,
         base_token_amount: f64,
         quote_token_amount: f64,
-        pool_constant: f64,
     ) -> Result<()> {
-        let new_pool = Pool {
-            base_token,
-            quote_token,
+        let signer = ctx.accounts.signer.key();
+        let pool = &mut ctx.accounts.pool;
+        let master = &mut ctx.accounts.master;
+
+        let pool_data = Pool {
+            base_token: base_token_account,
+            quote_token: quote_token_account,
+            token_creator: signer,
             base_token_amount,
             quote_token_amount,
-            pool_constant,
-            token_creator: ctx.accounts.signer.key(),
+            pool_constant: base_token_amount * quote_token_amount,
         };
 
-        ctx.accounts.data.pools.push(new_pool);
+        pool.pools.push(pool_data);
+        master.current_id += 1;
+        msg!("Pool created");
 
         Ok(())
+    }
+
+    pub fn get_pool_details(
+        ctx: Context<CreatePool>,
+        quote_token_account: Pubkey,
+    ) -> Result<Pool> {
+        let pool = &ctx.accounts.pool;
+        let pool_data = pool
+            .pools
+            .iter()
+            .find(|p| p.quote_token == quote_token_account)
+            .ok_or(PoolError::PoolNotFound)?;
+        Ok(pool_data.clone())
     }
 
     pub fn swap_token(ctx: Context<SwapContext>, token_name: String, quantity: u64) -> Result<()> {
@@ -55,58 +82,70 @@ pub mod tkn_launcher {
 
         Ok(())
     }
-
-    pub fn get_pool(ctx: Context<MainContext>, quote_token: Pubkey) -> Result<Pool> {
-        let data = &ctx.accounts.data;
-        let pool_data = data
-            .pools
-            .iter()
-            .find(|pool| pool.quote_token == quote_token)
-            .unwrap();
-
-        Ok(pool_data.clone())
-    }
 }
 
 #[account]
-pub struct Data {
-    pools: Vec<Pool>,
-    master: String,
+pub struct Master {
+    pub current_id: u64,
+    pub master_address: String,
 }
 
-impl Data {
-    const SIZE: usize = 8 + (88 * 10 + 8 + 24 + 4);
+#[account]
+pub struct PoolDetails {
+    pub pools: Vec<Pool>,
 }
 
-#[derive(Clone, AnchorDeserialize, AnchorSerialize, Debug)]
-pub struct Pool {
-    base_token: Pubkey,      // 32
-    quote_token: Pubkey,     // 32
-    token_creator: Pubkey,   // 32
-    base_token_amount: f64,  // 8
-    quote_token_amount: f64, // 8
-    pool_constant: f64,      // 8
+#[account]
+pub struct SwapDetails {
+    pub pool_address: String,
+    pub base_token: String,
+    pub quote_token: String,
+    pub swapped_amount: u64,
+    pub signer: String,
 }
 
 #[derive(Accounts)]
-pub struct MainContext<'info> {
-    #[account(init_if_needed, payer= signer,seeds=[b"main"], bump, space= Data::SIZE)]
-    data: Account<'info, Data>,
+pub struct InitMasterAccount<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 64,
+        seeds = [MASTER_ACCOUNT_SEED.as_bytes()],
+        bump
+    )]
+    pub master: Account<'info, Master>,
     #[account(mut)]
-    signer: Signer<'info>,
-    system_program: Program<'info, System>,
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(token_name: String)]
+pub struct CreatePool<'info> {
+    #[account(
+        init,
+        space = 4 + 4 + 32 + 32 + 32 + 32 + 32 + 32,
+        seeds = [POOL_SEED.as_bytes(), &(master.current_id + 1).to_le_bytes()],
+        bump,
+        payer = signer,
+    )]
+    pub pool: Account<'info, PoolDetails>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    #[account(mut)]
+    pub master: Account<'info, Master>,
+}
+
+#[derive(Accounts)]
+#[instruction(current_id:u64)]
 pub struct SwapContext<'info> {
     #[account(mut)]
-    data: Account<'info, Data>,
+    data: Account<'info, PoolDetails>,
     #[account(mut)]
     signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [token_name.as_bytes()],
+        seeds = [SWAP_SEED.as_bytes(), &(master.current_id + 1).to_le_bytes()],
         bump,
     )]
     mint: Account<'info, Mint>,
@@ -117,5 +156,27 @@ pub struct SwapContext<'info> {
     #[account(mut)]
     authority: Signer<'info>,
     rent: Sysvar<'info, Rent>,
+    #[account(mut)]
+    pub master: Account<'info, Master>,
     token_program: Program<'info, Token>,
 }
+
+#[derive(Clone, AnchorDeserialize, AnchorSerialize, Debug)]
+pub struct Pool {
+    base_token: Pubkey,
+    quote_token: Pubkey,
+    token_creator: Pubkey,
+    base_token_amount: f64,
+    quote_token_amount: f64,
+    pool_constant: f64,
+}
+
+// #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
+// pub struct PoolData {
+//     pub base_token_account: String,
+//     pub quote_token_account: String,
+//     pub owner: Pubkey,
+//     pub base_token_amount: f64,
+//     pub quote_token_amount: f64,
+//     pub pool_constant: f64,
+// }

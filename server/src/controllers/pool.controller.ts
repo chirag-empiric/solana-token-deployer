@@ -21,7 +21,7 @@ import {
 
 const MASTER_ACCOUNT_SEED = 'master'
 const POOL_SEED = 'pool'
-const SWAP_SEED = 'swapping'
+const SWAP_SEED = 'swap'
 
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
@@ -47,6 +47,7 @@ export const getPoolAddress = async (id: any) => {
     console.log(`currentId is ${id}`);
     const newId = id.add(new BN(1));
     const idBuffer = newId.toArrayLike(Buffer, 'le', 8); // u64 is 8 bytes
+
     const [poolAddress] = await PublicKey.findProgramAddressSync(
       [Buffer.from(POOL_SEED), idBuffer],
       PROGRAM_ID
@@ -58,12 +59,18 @@ export const getPoolAddress = async (id: any) => {
   }
 };
 
-export const getSwapAccount = async () => {
+export const getSwapAccount = async (id: any) => {
   try {
     console.log(`MASTER_SEED is here`, PROGRAM_ID)
+    console.log(`currentId is ${id}`);
+    const newId = id.add(new BN(1));
+    const idBuffer = newId.toArrayLike(Buffer, 'le', 8); // u64 is 8 bytes
     return (
-      await PublicKey.findProgramAddressSync([Buffer.from(SWAP_SEED)], PROGRAM_ID)
+      await PublicKey.findProgramAddressSync(
+        [Buffer.from(SWAP_SEED), idBuffer],
+        PROGRAM_ID
     )[0]
+    )
   } catch (err: any) {
     console.error('Error:', err);
   }
@@ -76,6 +83,13 @@ export const getMasterAccountInfos = async (masterAccountAddress: Keypair) => {
   } catch (err: any) {
     console.error(`Error`, err)
   }
+}
+
+const getQuoteTokenMintAdd = async (tokenId: any): Promise<PublicKey> => {
+  console.log(`MASTER_SEED is here`, PROGRAM_ID)
+  return (
+    await PublicKey.findProgramAddressSync([Buffer.from(tokenId)], PROGRAM_ID)
+  )[0]
 }
 
 const getMasterAddress = async (): Promise<PublicKey> => {
@@ -104,23 +118,23 @@ export const masterAccountDetails = async (req: Request, res: Response, next: Ne
   }
 }
 
-
 // TODO CreateMasterAccount
 export const createMasterAccount = async (req: Request, res: Response, next: NextFunction): Promise<number | any> => {
   console.log(`------------ Creating the master account..... -----------------`)
   try {
-    const rootMasterAddress = req.body.masterAddress;
+    // const rootMasterAddress = req.body.masterAddress;
     console.log('User Balance before master account creation')
     await getUserBalance()
     const randomAccount = Keypair.generate()
 
-    const masterAddress = await getMasterAddress()
-    console.log(`MasterAddress is:`, masterAddress)
+    const masterAddressFromSeed = await getMasterAddress()
+    console.log(`MasterAddress is:`, masterAddressFromSeed)
 
-    const createMasterTxnHash = await poolProgram.methods.initMasterAccount(
-      rootMasterAddress
+
+    const createMasterTxnHash = await poolProgram.methods.initMasterAccount( //Ew2B2pttjzR4r4jdVh2HaZLb5sPBbe8fXTmGNNvHtxEh
+      req.body.masterAddress
     ).accounts({
-      master: masterAddress,
+      master: masterAddressFromSeed,
       payer: wallet.publicKey,
       systemProgram: web3.SystemProgram.programId,
     }).rpc()
@@ -178,8 +192,8 @@ export const createPool = async (req: Request, res: Response): Promise<void> => 
     console.log(`poolAddress is`, poolAddress)
 
     const createPoolAccountTxn = await poolProgram.methods.createPool(
-      req.body.baseTokenAccount,
-      req.body.quoteTokenAccount,
+      new PublicKey(req.body.baseTokenAccount),
+      new PublicKey(req.body.quoteTokenAccount),
       req.body.baseTokenAmount,
       req.body.quoteTokenAmount,
     ).accounts({
@@ -275,15 +289,18 @@ export const poolDetails = async (req:Request, res: Response, next: NextFunction
 // TODO SWAP
 export const swapSplTokens = async (req: Request, res: Response) => {
   try {
-    const poolAccountAddress = "5UaLh9NrNrPVvj7Hb8iEtTGLBeWrs3cwfnPsYDSi16Gd"
+    const poolAccountAddress = "8HZhGJ3PrQoEAVNN32FmFeyAjP6RQWTK88PsUkPnqTZE"
     let {baseInAccount, quoteOutAccount, tokenInAmount} = req.body
-    const swapAccount = await getSwapAccount();
 
     const poolInfo = await poolProgram.account.poolDetails.fetch(new PublicKey(poolAccountAddress!))
     console.log(`poolInfo is`, poolInfo)
 
-    const masterAccountAddress = await getMasterAddress();
-    const masterAccountDetails = await poolProgram.account.master.fetch(masterAccountAddress)
+    const masterAddress = await getMasterAddress();
+    const masterAccountDetails = await poolProgram.account.master.fetch(masterAddress)
+    const  rootAddress = masterAccountDetails?.masterAddress
+    const currentId = await masterAccountDetails?.currentId
+    console.log(`masterAccountDetails are as:`, masterAccountDetails?.masterAddress)
+    const swapAccount = await getSwapAccount(currentId);
 
     const fromAtaAddress = await anchor.utils.token.associatedAddress({
       mint: SOLANA_MINT,
@@ -298,26 +315,54 @@ export const swapSplTokens = async (req: Request, res: Response) => {
     console.log(`toAta is`, toAtaAddress)
     console.log(`toAta is`,swapAccount)
 
-    const txHash = await poolProgram.methods.swap(
-      baseInAccount,
-      quoteOutAccount,
-      tokenInAmount
+    const tokenToBuy = req.body.tokenToBuy
+    const amount = req.body.amount
+
+    const mintAddress = await getQuoteTokenMintAdd(currentId);
+    console.log(`mintAddress is ${masterAddress}`, masterAddress)
+
+    // const sourceAta = await anchor.utils.token.associatedAddress({
+    //   mint: mintKeypairPubKey,
+    //   owner: recipientPubKey
+    // });
+    //
+    // const recieverAta = await anchor.utils.token.associatedAddress({
+    //   mint: mintKeypairPubKey,
+    //   owner: recipientPubKey
+    // });
+
+    const fromAtaTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet,
+      mint,
+      fromWallet.publicKey
+    );
+
+    const txHash = await poolProgram.methods.swapToken(
+      tokenToBuy,
+      req.body.amount
     ).accounts({
-      swap: swapAccount,
-      fromAta: fromAtaAddress,
-      toAta: toAtaAddress,
-      tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+      // swap: swapAccount,
+      // fromAta: fromAtaAddress,
+      // toAta: toAtaAddress,
+      // tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+      // signer: wallet.publicKey,
+      // systemProgram: web3.SystemProgram.programId,
+      // pool: new PublicKey(poolAccountAddress)
+
+      data: new PublicKey("8HZhGJ3PrQoEAVNN32FmFeyAjP6RQWTK88PsUkPnqTZE"),
       signer: wallet.publicKey,
-      systemProgram: web3.SystemProgram.programId,
-      pool: new PublicKey(poolAccountAddress)
+      mint: mintAddress,
+      source: wallet.publicKey,
+      destination: rootAddress,
+      authority: wallet.publicKey,
+      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      master: masterAddress,
+      tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
     }).rpc()
 
     console.log(`txHash is:`, txHash)
 
-    // console.log(`getSwapAccount is`, swapAccount)
-    //
-    //
-    //
     // const fromAddress = wallet.publicKey
     // console.log(`wallet.publicKey is:`, wallet.publicKey)
     //

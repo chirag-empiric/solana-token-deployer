@@ -7,9 +7,11 @@ import poolIdl from '../../../token-program/target/idl/pool.json'
 import userWalletJsons from '/home/hp/.config/solana/solana_account1.json'
 import { PoolProgram } from '../interfaces/pool_program'
 
-const rpcUrl = process.env.RPC || 'http://127.0.0.1:8899'
+// const rpcUrl = process.env.RPC || 'http://127.0.0.1:8899'
 
 // const rpcUrl = process.env.RPC || 'https://api.devnet.solana.com'
+
+const rpcUrl = "https://solana-devnet.g.alchemy.com/v2/xJ3fsIAg3uAbz7rRmVQl1QGM-SwtzFB8"
 
 const commitmentLevel = 'confirmed'
 const programInterfacesIDL = JSON.parse(JSON.stringify(poolIdl))
