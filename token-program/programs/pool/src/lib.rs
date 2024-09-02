@@ -2,7 +2,7 @@ use anchor_lang::{
     prelude::*,
     solana_program::{clock::Clock, hash::hash, program::invoke},
 };
-use anchor_spl::token::{self, Token, TokenAccount,Mint, Transfer as SplTransfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer as SplTransfer};
 use std::collections::HashMap;
 
 mod constants;
@@ -11,14 +11,18 @@ mod error;
 use crate::{constants::*, error::*};
 // use crate::program::Pool;
 
-declare_id!("ExNmugVzNsecTe3VnFFxTcnfrfQTV38xEeX7w5oxUEcH");
+declare_id!("CgeQdEqXnFafzo9qm6BtMMZ4HirKboxxDHDqee7yDNTu");
 
 #[program]
 pub mod pool {
     use super::*;
+    use anchor_lang::solana_program::system_instruction::transfer;
     use anchor_spl::token::Transfer;
 
-    pub fn init_master_account(ctx: Context<InitMasterAccount>, master_account:String) -> Result<()> {
+    pub fn init_master_account(
+        ctx: Context<InitMasterAccount>,
+        master_account: Pubkey,
+    ) -> Result<()> {
         let master_account_info = &mut ctx.accounts.master;
         master_account_info.master_address = master_account;
         Ok(())
@@ -51,10 +55,7 @@ pub mod pool {
         Ok(())
     }
 
-    pub fn get_pool_details(
-        ctx: Context<CreatePool>,
-        quote_token_account: Pubkey,
-    ) -> Result<Pool> {
+    pub fn get_pool_details(ctx: Context<CreatePool>, quote_token_account: Pubkey) -> Result<Pool> {
         let pool = &ctx.accounts.pool;
         let pool_data = pool
             .pools
@@ -66,6 +67,19 @@ pub mod pool {
 
     pub fn swap_token(ctx: Context<SwapContext>, token_name: String, quantity: u64) -> Result<()> {
         let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        invoke(
+            &transfer(
+                &ctx.accounts.signer.key(),
+                &ctx.accounts.master.key(),
+                10000,
+            ),
+            &[
+                ctx.accounts.signer.to_account_info(),
+                ctx.accounts.master.to_account_info(),
+            ],
+        )?;
+
         let cpi_accounts = Transfer {
             from: ctx.accounts.source.to_account_info(),
             to: ctx.accounts.destination.to_account_info(),
@@ -87,7 +101,7 @@ pub mod pool {
 #[account]
 pub struct Master {
     pub current_id: u64,
-    pub master_address: String,
+    pub master_address: Pubkey,
 }
 
 #[account]
