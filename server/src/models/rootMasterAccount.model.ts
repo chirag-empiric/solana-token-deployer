@@ -1,15 +1,23 @@
-import mongoose, { Document, Schema } from 'mongoose'
+import { Document, Schema, model } from 'mongoose'
 
-const rootMasterAccountSchema = new Schema({
+interface IRootMasterAccount extends Document {
+  masterAccount: string;
+  createdAt: Date;
+}
+
+const rootMasterAccountSchema: Schema<IRootMasterAccount> = new Schema<IRootMasterAccount>({
   masterAccount: {
     type: String,
+    required: true,
+    trim: true,
   },
   createdAt: {
     type: Date,
     default: Date.now,
   },
+}, {
+  timestamps: true,
 })
+const RootMasterAccountModel = model<IRootMasterAccount>('RootMasterAccount', rootMasterAccountSchema)
 
-const rootMasterAccountModel = mongoose.model('RootMasterAccount', rootMasterAccountSchema)
-
-export default rootMasterAccountModel
+export default RootMasterAccountModel

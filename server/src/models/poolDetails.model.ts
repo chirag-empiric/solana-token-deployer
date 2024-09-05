@@ -1,24 +1,57 @@
-import mongoose, { Document, Schema } from 'mongoose'
+import mongoose, { Document, Schema, model } from 'mongoose'
 
-const poolDetailsSchema = new Schema({
+interface IPoolDetails extends Document {
+  poolAddress: string;
+  poolId: number;
+  baseTokenAccount: string;
+  quoteTokenAccount: string;
+  baseTokenAmount: mongoose.Types.Decimal128;
+  quoteTokenAmount: mongoose.Types.Decimal128;
+  poolConstant: mongoose.Types.Decimal128;
+  createdAt: Date;
+}
+
+const poolDetailsSchema: Schema<IPoolDetails> = new Schema<IPoolDetails>({
+  poolAddress: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   poolId: {
-    type: String
+    type: Number,
+    required: true,
+    min: 0,
   },
   baseTokenAccount: {
     type: String,
+    required: true,
+    trim: true,
   },
   quoteTokenAccount: {
     type: String,
+    required: true,
+    trim: true,
   },
-  baseTokenAmount: mongoose.Schema.Types.Decimal128, // Or another appropriate type
-  quoteTokenAmount: mongoose.Schema.Types.Decimal128, // Or another appropriate type
-  totalValue: mongoose.Schema.Types.Decimal128,
+  baseTokenAmount: {
+    type: mongoose.Schema.Types.Decimal128,
+    required: true,
+  },
+  quoteTokenAmount: {
+    type: mongoose.Schema.Types.Decimal128,
+    required: true,
+  },
+  poolConstant: {
+    type: mongoose.Schema.Types.Decimal128,
+    required: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
-  }
+  },
+}, {
+  timestamps: true,
 })
 
-const poolDetailsModel = mongoose.model('PoolDetails', poolDetailsSchema)
+const PoolDetailsModel = model<IPoolDetails>('PoolDetails', poolDetailsSchema)
 
-export default poolDetailsModel
+export default PoolDetailsModel

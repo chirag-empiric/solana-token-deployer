@@ -1,24 +1,24 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::{clock::Clock, hash::hash, program::invoke},
-};
-use anchor_spl::token::{self, Token, TokenAccount,Mint, Transfer as SplTransfer};
-use std::collections::HashMap;
+use anchor_lang::prelude::*;
+use anchor_lang::system_program;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer as SplTransfer};
+use solana_program::system_instruction;
 
 mod constants;
 mod error;
 
 use crate::{constants::*, error::*};
-// use crate::program::Pool;
 
-declare_id!("ExNmugVzNsecTe3VnFFxTcnfrfQTV38xEeX7w5oxUEcH");
+declare_id!("8xHGEAniVQrdM2VAmSYQmmBbXcx4HpGNc188AtjU7H12");
 
 #[program]
 pub mod pool {
     use super::*;
     use anchor_spl::token::Transfer;
 
-    pub fn init_master_account(ctx: Context<InitMasterAccount>, master_account:String) -> Result<()> {
+    pub fn init_master_account(
+        ctx: Context<InitMasterAccount>,
+        master_account: Pubkey,
+    ) -> Result<()> {
         let master_account_info = &mut ctx.accounts.master;
         master_account_info.master_address = master_account;
         Ok(())
@@ -28,8 +28,8 @@ pub mod pool {
         ctx: Context<CreatePool>,
         base_token_account: Pubkey,
         quote_token_account: Pubkey,
-        base_token_amount: f64,
-        quote_token_amount: f64,
+        base_token_amount: u64,
+        quote_token_amount: u64,
     ) -> Result<()> {
         let signer = ctx.accounts.signer.key();
         let pool = &mut ctx.accounts.pool;
@@ -43,18 +43,14 @@ pub mod pool {
             quote_token_amount,
             pool_constant: base_token_amount * quote_token_amount,
         };
-
         pool.pools.push(pool_data);
-        master.current_id += 1;
+        master.current_pool_id += 1;
         msg!("Pool created");
 
         Ok(())
     }
 
-    pub fn get_pool_details(
-        ctx: Context<CreatePool>,
-        quote_token_account: Pubkey,
-    ) -> Result<Pool> {
+    pub fn get_pool_details(ctx: Context<CreatePool>, quote_token_account: Pubkey) -> Result<Pool> {
         let pool = &ctx.accounts.pool;
         let pool_data = pool
             .pools
@@ -64,21 +60,40 @@ pub mod pool {
         Ok(pool_data.clone())
     }
 
-    pub fn swap_token(ctx: Context<SwapContext>, token_name: String, quantity: u64) -> Result<()> {
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.destination.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
-        };
-
-        let token_name_bytes = token_name.as_bytes();
-        let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
-        let signer = &[&seeds[..]];
-
-        let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-
-        anchor_spl::token::transfer(cpi_context, quantity)?;
+    pub fn swap(
+        ctx: Context<SwapContext>,
+        token_out_address: Pubkey,
+        amount_in: u64,
+    ) -> Result<()> {
+        let master = &mut ctx.accounts.master;
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info(),
+                to: ctx.accounts.recipient.to_account_info(),
+            },
+        );
+        let res = system_program::transfer(cpi_context, amount_in as u64);
+        if res.is_ok() {
+            msg!("Solana transferred successfully");
+        } else {
+            return err!(SolanaTransferError::SolanaNotTransferred);
+        }
+        let pool_info = &mut ctx.accounts.pool;
+        let mut pool_data_opt: Option<&mut Pool> = None;
+        for pool in &mut pool_info.pools {
+            if pool.quote_token == token_out_address {
+                pool_data_opt = Some(pool);
+                break;
+            }
+        }
+        let pool_data = pool_data_opt.ok_or(PoolError::PoolNotFound)?;
+        let new_base_token_value = pool_data.base_token_amount + amount_in;
+        let new_quote_token_value = pool_data.pool_constant / new_base_token_value;
+        let quote_tkn_to_recieve = pool_data.quote_token_amount - new_quote_token_value;
+        pool_data.base_token_amount = new_base_token_value;
+        pool_data.quote_token_amount = new_quote_token_value;
+        master.current_pool_id += 1;
 
         Ok(())
     }
@@ -86,8 +101,9 @@ pub mod pool {
 
 #[account]
 pub struct Master {
-    pub current_id: u64,
-    pub master_address: String,
+    pub master_address: Pubkey,
+    pub current_swap_id: u64,
+    pub current_pool_id: u64,
 }
 
 #[account]
@@ -97,11 +113,11 @@ pub struct PoolDetails {
 
 #[account]
 pub struct SwapDetails {
-    pub pool_address: String,
-    pub base_token: String,
-    pub quote_token: String,
+    pub pool_address: Pubkey,
+    pub base_token: Pubkey,
+    pub quote_token: Pubkey,
     pub swapped_amount: u64,
-    pub signer: String,
+    pub signer: Pubkey,
 }
 
 #[derive(Accounts)]
@@ -124,41 +140,30 @@ pub struct CreatePool<'info> {
     #[account(
         init,
         space = 4 + 4 + 32 + 32 + 32 + 32 + 32 + 32,
-        seeds = [POOL_SEED.as_bytes(), &(master.current_id + 1).to_le_bytes()],
+        seeds = [POOL_SEED.as_bytes(), &(master.current_pool_id + 1).to_le_bytes()],
         bump,
         payer = signer,
     )]
     pub pool: Account<'info, PoolDetails>,
     #[account(mut)]
     pub signer: Signer<'info>,
-    pub system_program: Program<'info, System>,
     #[account(mut)]
     pub master: Account<'info, Master>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(current_id:u64)]
 pub struct SwapContext<'info> {
     #[account(mut)]
-    data: Account<'info, PoolDetails>,
-    #[account(mut)]
     signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [SWAP_SEED.as_bytes(), &(master.current_id + 1).to_le_bytes()],
-        bump,
-    )]
-    mint: Account<'info, Mint>,
+    /// CHECK: we do not read or write the data of this account
     #[account(mut)]
-    source: Account<'info, TokenAccount>,
+    recipient: UncheckedAccount<'info>,
     #[account(mut)]
-    destination: Account<'info, TokenAccount>,
-    #[account(mut)]
-    authority: Signer<'info>,
-    rent: Sysvar<'info, Rent>,
+    pool: Account<'info, PoolDetails>,
+    system_program: Program<'info, System>,
     #[account(mut)]
     pub master: Account<'info, Master>,
-    token_program: Program<'info, Token>,
 }
 
 #[derive(Clone, AnchorDeserialize, AnchorSerialize, Debug)]
@@ -166,17 +171,7 @@ pub struct Pool {
     base_token: Pubkey,
     quote_token: Pubkey,
     token_creator: Pubkey,
-    base_token_amount: f64,
-    quote_token_amount: f64,
-    pool_constant: f64,
+    base_token_amount: u64,
+    quote_token_amount: u64,
+    pool_constant: u64,
 }
-
-// #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
-// pub struct PoolData {
-//     pub base_token_account: String,
-//     pub quote_token_account: String,
-//     pub owner: Pubkey,
-//     pub base_token_amount: f64,
-//     pub quote_token_amount: f64,
-//     pub pool_constant: f64,
-// }
