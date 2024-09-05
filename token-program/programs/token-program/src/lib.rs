@@ -8,7 +8,7 @@ use anchor_spl::{
     token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer},
 };
 
-declare_id!("GLJez89fCQ9Z9Y3A6bZsUFTDXgnn65n6krXQgiSai7x6");
+declare_id!("Efp5ixWb3y3kfa9act9FGz2u5mb29CGWtiVwBphmri5i");
 
 #[program]
 pub mod token_program {
@@ -54,7 +54,7 @@ pub mod token_program {
         Ok(())
     }
 
-    pub fn mint_tokens(ctx:Context<MintTokens>, token_name: String, quantity: u64) -> Result<()> {
+    pub fn mint_tokens(ctx: Context<MintTokens>, token_name: String, quantity: u64) -> Result<()> {
         let token_name_bytes = token_name.as_bytes();
         let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
         let signer = [&seeds[..]];

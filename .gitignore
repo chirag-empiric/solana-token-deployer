@@ -1,6 +1,7 @@
 .anchor
 .DS_Store
 target
+Anchor.toml
 **/*.rs.bk
 node_modules
 test-ledger
