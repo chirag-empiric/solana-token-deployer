@@ -8,7 +8,7 @@ use anchor_spl::{
     token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer},
 };
 
-declare_id!("Efp5ixWb3y3kfa9act9FGz2u5mb29CGWtiVwBphmri5i");
+declare_id!("3hpMH7KnWCaG9PX4qv1SSCiF1mzTFdMLa9PigM4BW4ti");
 
 #[program]
 pub mod token_program {
@@ -79,10 +79,6 @@ pub mod token_program {
         token_name: String,
         quantity: u64,
     ) -> Result<()> {
-        // if quantity != 69 {
-        //     return Err(TransferError::InvalidQuantity.into());
-        // }
-
         let token_name_bytes = token_name.as_bytes();
         let seeds = &[token_name_bytes, &[ctx.bumps.mint]];
         let signer = [&seeds[..]];

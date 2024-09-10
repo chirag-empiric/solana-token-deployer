@@ -1,4 +1,4 @@
-use anchor_lang::{prelude::error_code, solana_program::message};
+use anchor_lang::{prelude::error_code};
 
 #[error_code]
 pub enum PoolError {

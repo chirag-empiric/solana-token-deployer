@@ -1,9 +1,12 @@
+import dotenv from 'dotenv'
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import base58 from 'bs58'
 import { AnchorProvider, Program } from '@project-serum/anchor'
 import { Wallet } from '@project-serum/anchor'
 import poolIdl from '../../../token-program/target/idl/pool.json'
 import { Pool } from '../../../token-program/target/types/pool'
+
+dotenv.config()
 
 interface IRpcUrl {
   RPC_CLUSTER?: string;

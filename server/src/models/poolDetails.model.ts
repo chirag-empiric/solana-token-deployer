@@ -44,6 +44,9 @@ const poolDetailsSchema: Schema<IPoolDetails> = new Schema<IPoolDetails>({
     type: mongoose.Schema.Types.Decimal128,
     required: true,
   },
+  poolCreationTxHash: {
+    type: String,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

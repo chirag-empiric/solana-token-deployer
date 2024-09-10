@@ -3,34 +3,20 @@ import * as anchor from '@project-serum/anchor'
 import { NextFunction, Request, Response } from 'express'
 import { wallet } from '../config/getPoolPrograms'
 import { poolProgram } from '../config/getPoolPrograms'
-import { BN, web3 } from '@project-serum/anchor'
+import { web3, BN } from '@project-serum/anchor'
 import { PublicKey } from '@solana/web3.js'
 import { getProgramAccounts } from '../utils/getSolanaAccounts'
 import rootMasterAccountModel from '../models/rootMasterAccount.model'
 import poolDetailsModel from '../models/poolDetails.model'
+import { getAssociateAccount } from '../config/getAssociateAccount'
+import { getUserBalance } from '../utils/getBalance'
 
-export const masterAccountDetails = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  try {
-    const masterAccountAddress = req.body.masterAccountAddress
-    const masterAccountInfo = await poolProgram.account.master.fetch(masterAccountAddress)
-    console.log(`Master Account Details are`, masterAccountInfo)
-    res.status(200).json({
-      success: true,
-      message: 'Master Account Details',
-      data: masterAccountInfo,
-    })
-  } catch (err: any) {
-    console.error(`Error`, err)
-    res.status(400).json({
-      success: false,
-      error: err,
-    })
-  }
-}
+const { TOKEN_PROGRAM_ID } = require('@solana/spl-token')
 
 export const createMasterAccount = async (req: Request, res: Response, next: NextFunction) => {
-  console.log('--- Initiating Master Account Creation ---')
+  console.log('------------ Initiating Master Account Creation ------------')
   try {
+    console.log(poolProgram.programId)
     const { rootMasterAddress } = req.body
 
     if (!rootMasterAddress) {
@@ -52,7 +38,6 @@ export const createMasterAccount = async (req: Request, res: Response, next: Nex
 
     console.log(`Transaction hash: ${txHash}`)
     const txStatus = await getProgramAccounts.confirmTransactions(txHash)
-    console.log(`Transaction status: ${txStatus}`)
 
     const poolDetails = new rootMasterAccountModel({ masterAccount: masterAddressFromSeed })
     try {
@@ -73,13 +58,32 @@ export const createMasterAccount = async (req: Request, res: Response, next: Nex
     res.status(500).json({
       success: false,
       message: 'An error occurred while creating the master account',
-      error: err.message || err,
+      error: err,
+    })
+  }
+}
+
+export const masterAccountDetails = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+  try {
+    const masterAccountAddress = req.body.masterAccountAddress
+    const masterAccountInfo = await poolProgram.account.master.fetch(masterAccountAddress)
+    console.log(`Master Account Details are`, masterAccountInfo)
+    res.status(200).json({
+      success: true,
+      message: 'Master Account Details',
+      data: masterAccountInfo,
+    })
+  } catch (err: any) {
+    console.error(`Error`, err)
+    res.status(400).json({
+      success: false,
+      error: err,
     })
   }
 }
 
 export const createPool = async (req: Request, res: Response) => {
-  console.log(`------------ Initiating pool creation ------------------`)
+  console.log(`------------ Initiating pool creation ------------`)
 
   try {
     let { baseTokenAccount, quoteTokenAccount, baseTokenAmount, quoteTokenAmount } = req.body
@@ -93,17 +97,17 @@ export const createPool = async (req: Request, res: Response) => {
 
     const masterAccountAddress = await getProgramAccounts.getMasterAccount()
     const masterAccountDetails = await poolProgram.account.master.fetch(masterAccountAddress!)
-    console.log(`Master account details fetched:`, masterAccountDetails)
+    console.log(`Master account details fetched:`, typeof masterAccountDetails.currentPoolId)
 
     const currentPoolId = masterAccountDetails?.currentPoolId
-    const poolAddress = await getProgramAccounts.getPoolAccount(currentPoolId)
+    const poolAddress = await getProgramAccounts.getPoolAccount(currentPoolId, 'createPool')
     console.log(`Derived pool address: ${poolAddress}`)
 
     const txHash = await poolProgram.methods.createPool(
       new PublicKey(req.body.baseTokenAccount),
       new PublicKey(req.body.quoteTokenAccount),
-      req.body.baseTokenAmount,
-      req.body.quoteTokenAmount,
+      new BN(req.body.baseTokenAmount),
+      new BN(req.body.quoteTokenAmount),
     ).accounts({
       pool: poolAddress,
       signer: wallet.publicKey,
@@ -125,18 +129,26 @@ export const createPool = async (req: Request, res: Response) => {
         baseTokenAmount: baseTokenAmount,
         quoteTokenAmount: quoteTokenAmount,
         poolConstant: new mongoose.Types.Decimal128(poolConstant.toString()),
+        poolCreationTxHash: txHash,
       })
       await poolData.save()
     } catch (err: any) {
       console.error(`Error while storing the details to the db`, err)
     }
 
+    const data = {
+      poolAddress: poolAddress,
+      transactionHash: txHash,
+      url: `https://solscan.io/tx/${txHash}`,
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Pool created successfully.',
-      transactionHash: txHash,
+      message: 'Pool created successfully',
+      data: data,
     })
   } catch (err: any) {
+    console.error(`error`, err)
     return res.status(400).json({
       success: false,
       message: 'An error occurred while creating the pool. Check logs for details.',
@@ -156,7 +168,13 @@ export const getPoolDetails = async (req: Request, res: Response, next: NextFunc
     }
     const poolPublicKey = new PublicKey(poolId)
     const poolData = await poolProgram.account.poolDetails.fetch(poolPublicKey)
-    console.log(`Fetched pool details:`, poolData)
+    // const poolData = await poolProgram.account.poolDetails.
+
+    // console.log(`Fetched pool details:`, Number(poolData.pools[0].baseTokenAmount))
+    // console.log(`Fetched pool details:`, poolData.pools[0].baseTokenAmount)
+    // console.log(`Fetched pool details poolConstant :`, Number(poolData.pools[0].poolConstant))
+
+    console.log(`pool data`, poolData)
 
     res.status(200).json({
       success: true,
@@ -175,13 +193,17 @@ export const getPoolDetails = async (req: Request, res: Response, next: NextFunc
 
 export const swapTokens = async (req: Request, res: Response) => {
   try {
+    await getUserBalance(wallet.publicKey)
+    await getUserBalance(new PublicKey(req.body.recipientAddress))
+
     const { poolId, tokenToBuy, swapAmountInSol } = req.body
-    if (!poolId || !tokenToBuy || !swapAmountInSol) {
+    if (!tokenToBuy || !swapAmountInSol) {
       return res.status(400).json({
         success: false,
         message: 'Missing required parameters',
       })
     }
+
     const masterAccount = await getProgramAccounts.getMasterAccount()
     const masterAccountData = await poolProgram.account.master.fetch(masterAccount!)
 
@@ -192,27 +214,48 @@ export const swapTokens = async (req: Request, res: Response) => {
       })
     }
 
-    const { masterAddress } = masterAccountData
+    const { masterAddress, currentPoolId } = masterAccountData
+    const fromAta = await getAssociateAccount(wallet, wallet.publicKey, new PublicKey(tokenToBuy))
+    const toAta = await getAssociateAccount(wallet, masterAddress, new PublicKey(tokenToBuy))
     const poolCurrentId = new BN(poolId)
     const amountInLamports = new anchor.BN(swapAmountInSol * anchor.web3.LAMPORTS_PER_SOL)
     const recipientPublicKey = new PublicKey(masterAddress)
-    const poolAccountPublicKey = await getProgramAccounts.getPoolAccount(poolCurrentId)
+    console.log(`current pool id`, currentPoolId)
+    console.log(`poolCurrentId`, typeof poolCurrentId)
 
+    const poolAccountPublicKey = await getProgramAccounts.getPoolAccount(poolCurrentId, 'swap')
+    console.log(`pool account is: ${poolAccountPublicKey}`)
+    console.log(`masterAddress is`, masterAddress)
+
+    //On-chain transaction to transfer SOL
     const txHash = await poolProgram.methods.swap(
       new PublicKey(tokenToBuy),
       amountInLamports as any,
     ).accounts({
+      signer: wallet.publicKey,
       recipient: recipientPublicKey,
       pool: poolAccountPublicKey,
-      master: masterAddress,
-    }).rpc()
+      master: masterAccount,
+      fromAta: fromAta.address,
+      toAta: toAta!.address,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    }).signers([wallet.payer])
+      .rpc()
 
-    console.log(`Transaction hash: ${txHash}`)
+    console.log(`https://explorer.solana.com/tx/${txHash}?cluster=devnet`)
+    await getProgramAccounts.confirmTransactions(txHash)
     const updatedPoolDetails = await poolProgram.account.poolDetails.fetch(poolAccountPublicKey!)
     console.log(`Updated pool details:`, updatedPoolDetails)
+    await getUserBalance(wallet.publicKey)
+    await getUserBalance(new PublicKey(req.body.recipientAddress))
+    const data = {
+      txHash: txHash,
+      url: `https://explorer.solana.com/tx/${txHash}?cluster=devnet`,
+    }
     res.status(200).json({
       success: true,
-      message: 'Token swap completed successfully.',
+      message: 'Token swap completed successfully',
+      data: data,
     })
   } catch (err: any) {
     console.error('Error during token swap:', err)

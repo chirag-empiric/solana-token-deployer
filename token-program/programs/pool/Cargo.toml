@@ -19,5 +19,5 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { version = "0.29.0", features = ["init-if-needed"] }
 anchor-spl = { version = "0.29.0" }
-token = { path = "../../../tkn_launcher/programs/token", features = ["cpi"] }
+spl-token = { version = "6.0.0", features = ["no-entrypoint"] }
 solana-program = "2.0.8"

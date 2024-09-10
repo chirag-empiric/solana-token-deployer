@@ -16,8 +16,8 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
 // Routes
-app.use('/api/v1', metadataRoutes)
 app.use('/pool/v1', createMarketsRoutes)
+app.use('/api/v1', metadataRoutes)
 app.use('/dex/v1', dexRoutes)
 
 app.listen(PORT, async () => {

@@ -5,9 +5,8 @@ seeds = false
 skip-lint = false
 
 [programs.devnet]
-pool = "8xHGEAniVQrdM2VAmSYQmmBbXcx4HpGNc188AtjU7H12"
-# spltoken = "9es2vf5nnqkfbjczhko6wu7AXBA8w9pmR41jjC2Wwrv8"
-#token_program = "GLJez89fCQ9Z9Y3A6bZsUFTDXgnn65n6krXQgiSai7x6"
+pool = "DtaiArZWpxECk7mw9cM5ccsstWTxc8XKDoxZDTfJjz2z"
+token_program = "3hpMH7KnWCaG9PX4qv1SSCiF1mzTFdMLa9PigM4BW4ti"
 
 [registry]
 url = "https://api.apr.dev"
@@ -17,10 +16,7 @@ cluster = "Devnet"
 wallet = "/home/hp/.config/solana/solana_account1.json"
 
 [workspace]
-members = ["programs/pool"]
-
-# members = ["programs/token-program", "programs/pool", "programs/spltoken"]
-
+members = ["programs/token-program", "programs/pool"]
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

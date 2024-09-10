@@ -1,19 +1,17 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer as SplTransfer};
-use solana_program::system_instruction;
 
 mod constants;
 mod error;
 
 use crate::{constants::*, error::*};
 
-declare_id!("8xHGEAniVQrdM2VAmSYQmmBbXcx4HpGNc188AtjU7H12");
+declare_id!("DtaiArZWpxECk7mw9cM5ccsstWTxc8XKDoxZDTfJjz2z");
 
 #[program]
 pub mod pool {
     use super::*;
-    use anchor_spl::token::Transfer;
 
     pub fn init_master_account(
         ctx: Context<InitMasterAccount>,
@@ -34,8 +32,10 @@ pub mod pool {
         let signer = ctx.accounts.signer.key();
         let pool = &mut ctx.accounts.pool;
         let master = &mut ctx.accounts.master;
+        let current_pool_id = master.current_pool_id + 1;
 
         let pool_data = Pool {
+            pool_id: current_pool_id,
             base_token: base_token_account,
             quote_token: quote_token_account,
             token_creator: signer,
@@ -45,6 +45,8 @@ pub mod pool {
         };
         pool.pools.push(pool_data);
         master.current_pool_id += 1;
+
+        // Log creation
         msg!("Pool created");
 
         Ok(())
@@ -65,6 +67,10 @@ pub mod pool {
         token_out_address: Pubkey,
         amount_in: u64,
     ) -> Result<()> {
+        let destination = &ctx.accounts.to_ata;
+        let source = &ctx.accounts.from_ata;
+        let token_program = &ctx.accounts.token_program;
+        let authority = &ctx.accounts.signer;
         let master = &mut ctx.accounts.master;
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -95,6 +101,16 @@ pub mod pool {
         pool_data.quote_token_amount = new_quote_token_value;
         master.current_pool_id += 1;
 
+        let cpi_accounts = SplTransfer {
+            from: source.to_account_info().clone(),
+            to: destination.to_account_info().clone(),
+            authority: authority.to_account_info().clone(),
+        };
+        let cpi_program = token_program.to_account_info();
+
+        token::transfer(
+            CpiContext::new(cpi_program, cpi_accounts),
+            quote_tkn_to_recieve as u64)?;
         Ok(())
     }
 }
@@ -164,10 +180,35 @@ pub struct SwapContext<'info> {
     system_program: Program<'info, System>,
     #[account(mut)]
     pub master: Account<'info, Master>,
+    #[account(mut)]
+    pub from_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub to_ata: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+#[instruction(token_name: String)]
+pub struct TransferTokens<'info> {
+    #[account(
+        mut,
+        seeds = [token_name.as_bytes()],
+        bump,
+    )]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub source: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Clone, AnchorDeserialize, AnchorSerialize, Debug)]
 pub struct Pool {
+    pool_id: u64,
     base_token: Pubkey,
     quote_token: Pubkey,
     token_creator: Pubkey,

@@ -1,7 +1,9 @@
 import { PublicKey } from '@solana/web3.js'
-import { BN } from '@project-serum/anchor'
+import { BN, web3 } from '@project-serum/anchor'
 import { connection, PROGRAM_ID } from '../config/getPoolPrograms'
 import { MASTER_ACCOUNT_SEED, SWAP_SEED, POOL_SEED } from './seedConstant'
+
+let newId: BN
 
 export class getProgramAccounts {
   public static async getMasterAccount(): Promise<PublicKey | undefined> {
@@ -28,10 +30,19 @@ export class getProgramAccounts {
     }
   }
 
-  public static async getPoolAccount(id: BN): Promise<PublicKey | undefined> {
-    console.log(`fetching the pool account for the id: ${id}`)
+  public static async getPoolAccount(poolId: BN, txType: String): Promise<PublicKey | undefined> {
+    console.log(`fetching the pool account`)
+    console.log(`id is`, typeof poolId)
+
     try {
-      const newId = id.add(new BN(1))
+      if (txType !== 'swap') {
+        newId = poolId.add(new BN(1))
+      } else {
+        newId = poolId
+      }
+      console.log(`new Id is: ${newId}`)
+      console.log(`new Id is: ${newId}`, typeof newId)
+
       const idBuffer = newId.toArrayLike(Buffer, 'le', 8)
       const [poolAddress] = PublicKey.findProgramAddressSync(
         [Buffer.from(POOL_SEED), idBuffer],
@@ -41,6 +52,51 @@ export class getProgramAccounts {
     } catch (err: any) {
       console.error('error while fetching the pool account', err)
       return undefined
+    }
+  }
+
+  public static async confirmTransaction(
+    signature: web3.TransactionSignature,
+    desiredConfirmationStatus: web3.TransactionConfirmationStatus = 'confirmed',
+    timeout: number = 30000,
+    pollInterval: number = 1000,
+    searchTransactionHistory: boolean = false,
+  ): Promise<web3.SignatureStatus | undefined | Error> {
+    try {
+      const start = Date.now()
+
+      while (Date.now() - start < timeout) {
+        const { value: statuses } = await connection.getSignatureStatuses([signature], { searchTransactionHistory })
+
+        if (!statuses || statuses.length === 0) {
+          return new Error('Failed to get signature status')
+        }
+
+        const status = statuses[0]
+
+        if (status === null) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval))
+          continue
+        }
+
+        if (status.err) {
+          return new Error(`Transaction failed: ${JSON.stringify(status.err)}`)
+        }
+        if (status.confirmationStatus && status.confirmationStatus === desiredConfirmationStatus) {
+          return status
+        }
+
+        if (status.confirmationStatus === 'finalized') {
+          return status
+        }
+
+        await new Promise(resolve => setTimeout(resolve, pollInterval))
+      }
+
+      return new Error(`Transaction confirmation timeout after ${timeout}ms`)
+    } catch (err: any) {
+      console.log(`error while send and confirm the transactions`, err)
+      return err
     }
   }
 
